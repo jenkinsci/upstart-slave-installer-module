@@ -9,6 +9,7 @@ import org.apache.commons.io.IOUtils;
 import org.jenkinsci.modules.slave_installer.AbstractUnixSlaveInstaller;
 import org.jenkinsci.modules.slave_installer.InstallationException;
 import org.jenkinsci.modules.slave_installer.LaunchConfiguration;
+import org.jenkinsci.modules.slave_installer.Prompter;
 import org.jvnet.localizer.Localizable;
 
 import java.io.File;
@@ -40,14 +41,17 @@ public class UpstartSlaveInstaller extends AbstractUnixSlaveInstaller {
     }
 
     @Override
-    public void install(LaunchConfiguration params) throws InstallationException, IOException, InterruptedException {
+    public void install(LaunchConfiguration params, Prompter prompter) throws InstallationException, IOException, InterruptedException {
         final File srcSlaveJar = params.getJarFile();
         final String args = params.buildRunnerArguments().toStringWithQuote();
         final File rootDir = new File(this.rootDir);
         final StreamTaskListener listener = StreamTaskListener.fromStdout();
+        final String userName = getCurrentUnixUserName();
 
-        // TODO: su username&password
-        SU.execute(listener,"root","password",new Callable<Void, IOException>() {
+        String rootUser = prompter.prompt("Specify the super user name to 'sudo' to","root");
+        String rootPassword = prompter.promptPassword("Specify your password for sudo (or empty if you can sudo without password)");
+
+        SU.execute(listener,rootUser,rootPassword,new Callable<Void, IOException>() {
             public Void call() throws IOException {
                 try {
                     File slaveJar = new File(rootDir, "slave.jar");
@@ -55,12 +59,12 @@ public class UpstartSlaveInstaller extends AbstractUnixSlaveInstaller {
 
                     String conf = IOUtils.toString(getClass().getResourceAsStream("jenkins-slave.conf"));
                     conf = conf
-                            .replace("{username}", getCurrentUnixUserName())
+                            .replace("{username}", userName)
                             .replace("{jar}", slaveJar.getAbsolutePath())
                             .replace("{args}", args);
 
                     final String name = "jenkins-slave-" + instanceId;  // service name
-                    FileUtils.writeStringToFile(new File("/etc/init/" + name), conf);
+                    FileUtils.writeStringToFile(new File("/etc/init/"+name+".conf"), conf);
 
                     Util.createSymlink(new File("/etc/init.d"), "/lib/init/upstart-job", name, listener);
 
