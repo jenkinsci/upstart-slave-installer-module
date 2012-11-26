@@ -24,15 +24,8 @@ import java.io.InterruptedIOException;
 public class UpstartSlaveInstaller extends AbstractUnixSlaveInstaller {
     private final String instanceId;
 
-    /**
-     * Root directory of this slave.
-     * String, not File because the platform can be different.
-     */
-    private final String rootDir;
-
-    public UpstartSlaveInstaller(String instanceId, String rootDir) {
+    public UpstartSlaveInstaller(String instanceId) {
         this.instanceId = instanceId;
-        this.rootDir = rootDir;
     }
 
     @Override
@@ -44,7 +37,7 @@ public class UpstartSlaveInstaller extends AbstractUnixSlaveInstaller {
     public void install(LaunchConfiguration params, Prompter prompter) throws InstallationException, IOException, InterruptedException {
         final File srcSlaveJar = params.getJarFile();
         final String args = params.buildRunnerArguments().toStringWithQuote();
-        final File rootDir = new File(this.rootDir);
+        final File rootDir = params.getStorage().getAbsoluteFile();
         final StreamTaskListener listener = StreamTaskListener.fromStdout();
         final String userName = getCurrentUnixUserName();
 
